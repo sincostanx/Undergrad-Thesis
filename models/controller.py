@@ -21,13 +21,13 @@ class DecoderBN(nn.Module):
         super(DecoderBN, self).__init__()
         features = int(num_features)
 
-        self.conv2 = nn.Conv2d(feat_out_channels[4], features, kernel_size=1, stride=1, padding=1)
-
+        self.conv2 = nn.Conv2d(feat_out_channels[-1], features, kernel_size=1, stride=1, padding=1)
+        
         self.up1 = UpSampleBN(skip_input=features // 1, output_features=features // 2)
-        self.up2 = UpSampleBN(skip_input=features // 2 + feat_out_channels[3], output_features=features // 4)
-        self.up3 = UpSampleBN(skip_input=features // 4 + feat_out_channels[2], output_features=features // 8)
-        self.up4 = UpSampleBN(skip_input=features // 8 +  feat_out_channels[1], output_features=features // 16)
-        self.up5 = SeperableConv2d(features // 16 + feat_out_channels[0], features // 32, kernel_size = 3, activation = ["leaky_relu", "leaky_relu"])
+        self.up2 = UpSampleBN(skip_input=features // 2 + feat_out_channels[-2], output_features=features // 4)
+        self.up3 = UpSampleBN(skip_input=features // 4 + feat_out_channels[-3], output_features=features // 8)
+        self.up4 = UpSampleBN(skip_input=features // 8 + feat_out_channels[-4], output_features=features // 16)
+        self.up5 = SeperableConv2d(features // 16 + feat_out_channels[-5], features // 32, kernel_size = 3, activation = ["leaky_relu", "leaky_relu"])
         
         self.conv3 = SeperableConv2d(features // 32, ensemble_size, kernel_size = 3, activation = ["relu", "none"])
         

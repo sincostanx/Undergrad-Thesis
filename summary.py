@@ -6,13 +6,13 @@ from torchinfo import summary
 
 # Ensemble for illustration only
 class Ensemble(nn.Module):
-    def __init__(self,n_bins, bts_size, min_val, max_val, norm, controller_input):
+    def __init__(self, args):
         super(Ensemble, self).__init__()
-        self.adabins=models.UnetAdaptiveBins.build(basemodel_name="ghostnet_1x", n_bins=n_bins,min_val=min_val,max_val=max_val,norm=norm)
-        self.bts=models.BtsModel.build(basemodel_name="ghostnet_1x", bts_size=bts_size, min_val=min_val, max_val=max_val,norm=norm)
-        self.ldrn=models.LDRN.build(basemodel_name="ghostnet_1x", max_depth=max_val)
-        self.controller=models.Controller.build(basemodel_name="ghostnet_1x", ensemble_size=3, controller_input=args.controller_input)
-        self.controller_input = controller_input
+        self.adabins = models.UnetAdaptiveBins.build(basemodel_name=args.encoder, n_bins=args.n_bins, min_val=args.min_depth, max_val=args.max_depth, norm=args.norm)
+        self.bts = models.BtsModel.build(basemodel_name=args.encoder, bts_size=args.bts_size, min_val=args.min_depth, max_val=args.max_depth,norm=args.norm)
+        self.ldrn = models.LDRN.build(basemodel_name=args.encoder, max_depth=args.max_depth)
+        self.controller = models.Controller.build(basemodel_name=args.encoder_controller, ensemble_size=3, controller_input=args.controller_input)
+        self.controller_input = args.controller_input
     
     def forward(self, x):
         predList = [self.adabins(x.clone())[-1], self.bts(x.clone()), self.ldrn(x.clone())[-1]]
@@ -26,14 +26,14 @@ class Ensemble(nn.Module):
 # Generate dummy input and load network architecture
 input = torch.rand(1, 3 + 3*(args.inspect_module == "controller" and args.controller_input == "io"), 416, 544)
 if args.inspect_module == "adabins":
-    model = models.UnetAdaptiveBins.build(basemodel_name="ghostnet_1x", n_bins=args.n_bins, min_val=args.min_depth, max_val=args.max_depth, norm=args.norm)
+    model = models.UnetAdaptiveBins.build(basemodel_name=args.encoder, n_bins=args.n_bins, min_val=args.min_depth, max_val=args.max_depth, norm=args.norm)
 elif args.inspect_module == "bts":
-    model = models.BtsModel.build(basemodel_name="ghostnet_1x", bts_size=args.bts_size, min_val=args.min_depth, max_val=args.max_depth,norm=args.norm)
+    model = models.BtsModel.build(basemodel_name=args.encoder, bts_size=args.bts_size, min_val=args.min_depth, max_val=args.max_depth,norm=args.norm)
 elif args.inspect_module == "ldrn":
-    model = models.LDRN.build(basemodel_name="ghostnet_1x", max_depth=args.max_depth)
+    model = models.LDRN.build(basemodel_name=args.encoder, max_depth=args.max_depth)
 elif args.inspect_module == "controller":
-    model = models.Controller.build(basemodel_name="ghostnet_1x", ensemble_size=3, controller_input=args.controller_input)
+    model = models.Controller.build(basemodel_name=args.encoder_controller, ensemble_size=3, controller_input=args.controller_input)
 elif args.inspect_module == "ensemble":
-    model = Ensemble(n_bins=256, bts_size=512, min_val=0.001, max_val=10, norm="linear", controller_input=args.controller_input)
+    model = Ensemble(args)
 
 summary(model, input_data=input, depth=3, col_names=("input_size", "output_size", "num_params"))

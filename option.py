@@ -65,6 +65,8 @@ parser.add_argument("--validate-every", "--validate_every", default=100, type=in
 
 # Model setting
 parser.add_argument("--module", default="controller", type=str, help="Module to operate on")
+parser.add_argument("--encoder", default="ghostnet_1x", type=str, help="encoder architectures")
+parser.add_argument("--encoder-controller", "--encoder_controller", default="ghostnet_1x", type=str, help="encoder architectures")
 parser.add_argument("--n-bins", "--n_bins", default=256, type=int, help="number of bins/buckets to divide depth range into")
 parser.add_argument("--w_chamfer", "--w-chamfer", default=0.1, type=float, help="weight value for chamfer loss")
 parser.add_argument("--bts_size", "--bts_size", default=512, type=int, help="number of bts class")

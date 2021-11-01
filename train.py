@@ -33,11 +33,11 @@ def main_worker(gpu, ngpus_per_node, args):
     ###################################### Load model ##############################################
     baselearners = []
     if args.module == "adabins":
-        model = models.UnetAdaptiveBins.build(basemodel_name="ghostnet_1x", n_bins=args.n_bins, min_val=args.min_depth, max_val=args.max_depth, norm=args.norm)
+        model = models.UnetAdaptiveBins.build(basemodel_name=args.encoder, n_bins=args.n_bins, min_val=args.min_depth, max_val=args.max_depth, norm=args.norm)
     elif args.module == "bts":
-        model = models.BtsModel.build(basemodel_name="ghostnet_1x", bts_size=args.bts_size, min_val=args.min_depth, max_val=args.max_depth,norm=args.norm)
+        model = models.BtsModel.build(basemodel_name=args.encoder, bts_size=args.bts_size, min_val=args.min_depth, max_val=args.max_depth,norm=args.norm)
     elif args.module == "ldrn":
-        model = models.LDRN.build(basemodel_name="ghostnet_1x", max_depth=args.max_depth)
+        model = models.LDRN.build(basemodel_name=args.encoder, max_depth=args.max_depth)
     elif args.module == "controller":
         baselearners_name = ["adabins", "bts", "ldrn"]
         baselearners_path = [
@@ -45,13 +45,13 @@ def main_worker(gpu, ngpus_per_node, args):
             "./checkpoints/UnetAdaptiveBins_05-Aug_06-49-nodebs32-tep25-lr0.000863310742922-wd0.0001-maxMT0.95-seed0-bts-b976954d-f4ef-48f7-8468-848a59d08692_best.pt",
             "./checkpoints/UnetAdaptiveBins_05-Aug_17-50-nodebs32-tep25-lr0.001232846739442-wd0.0001-maxMT0.95-seed1234567890-ldrn-1d367e30-91c5-4b3a-b06c-733221a79e7e_best.pt"
         ]
-        baselearners.append(models.UnetAdaptiveBins.build(basemodel_name="ghostnet_1x", n_bins=args.n_bins, min_val=args.min_depth, max_val=args.max_depth, norm=args.norm))
-        baselearners.append(models.BtsModel.build(basemodel_name="ghostnet_1x", bts_size=args.bts_size, min_val=args.min_depth, max_val=args.max_depth, norm=args.norm))
-        baselearners.append(models.LDRN.build(basemodel_name="ghostnet_1x", max_depth=args.max_depth))
+        baselearners.append(models.UnetAdaptiveBins.build(basemodel_name=args.encoder, n_bins=args.n_bins, min_val=args.min_depth, max_val=args.max_depth, norm=args.norm))
+        baselearners.append(models.BtsModel.build(basemodel_name=args.encoder, bts_size=args.bts_size, min_val=args.min_depth, max_val=args.max_depth, norm=args.norm))
+        baselearners.append(models.LDRN.build(basemodel_name=args.encoder, max_depth=args.max_depth))
         for i in range(len(baselearners)):
             baselearners[i] = model_io.load_pretrained(baselearners_path[i], baselearners[i], name=baselearners_name[i], num_gpu=args.gpu)[0]
         
-        model=models.Controller.build(basemodel_name="ghostnet_1x", ensemble_size=3, controller_input=args.controller_input)
+        model=models.Controller.build(basemodel_name=args.encoder_controller, ensemble_size=3, controller_input=args.controller_input)
     
     ###################################### Distributed Training ##############################################
     if args.gpu is not None:  # If a gpu is set by user: NO PARALLELISM!!
