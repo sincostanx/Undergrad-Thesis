@@ -39,11 +39,11 @@ def main_worker(gpu, ngpus_per_node, args):
 
     ###################################### Load model ##############################################
     if args.module == "adabins":
-        model = models.UnetAdaptiveBins.build(basemodel_name="ghostnet_1x", n_bins=args.n_bins, min_val=args.min_depth, max_val=args.max_depth, norm=args.norm)
+        model = models.UnetAdaptiveBins.build(basemodel_name=args.encoder, n_bins=args.n_bins, min_val=args.min_depth, max_val=args.max_depth, norm=args.norm)
     elif args.module == "bts":
-        model = models.BtsModel.build(basemodel_name="ghostnet_1x", bts_size=args.bts_size, min_val=args.min_depth, max_val=args.max_depth,norm=args.norm)
+        model = models.BtsModel.build(basemodel_name=args.encoder, bts_size=args.bts_size, min_val=args.min_depth, max_val=args.max_depth,norm=args.norm)
     elif args.module == "ldrn":
-        model = models.LDRN.build(basemodel_name="ghostnet_1x", max_depth=args.max_depth)
+        model = models.LDRN.build(basemodel_name=args.encoder, max_depth=args.max_depth)
     
     ###################################### Distributed Training ##############################################
     if args.gpu is not None:  # If a gpu is set by user: NO PARALLELISM!!
