@@ -1,6 +1,9 @@
 # Undergraduate Thesis
 This repository contains my undergraduate thesis, [**Supervised Monocular Depth Estimation via Stacked Generalization**](https://drive.google.com/file/d/1wrjHJrAY8h8B7ccvu8Z7Y0r3zFU-cVUI/view?usp=sharing).
 
+## Update
+- [28 Dec 2021]: [**One page summary and presentation slide with new updates**](https://github.com/sincostanx/yylab/tree/main/yy-lab-2021-%E5%90%88%E5%90%8C%E3%82%BC%E3%83%9F%20(%E6%9D%B1%E5%B7%A5%E5%A4%A7%2C%20%E8%BE%B2%E5%B7%A5%E5%A4%A7%2C%20%E9%9B%BB%E9%80%9A%E5%A4%A7%2C%20%E5%90%8D%E5%B7%A5%E5%A4%A7)) Implementations and detailed discussions cannot be published due to university's regulation.
+
 ## Note
 - ***This is a work in progress.*** All experimental data and implementations have not been finalized.
 - Due to technical issues during the experiment, parts of the implementation cannot be recovered. Therefore, the experiment **SG: Simultaneously** and **SG: RGB, Tuned** cannot be replicated (Please refer to the [report](https://drive.google.com/file/d/1wrjHJrAY8h8B7ccvu8Z7Y0r3zFU-cVUI/view?usp=sharing) for definition).
