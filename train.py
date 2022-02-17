@@ -18,7 +18,7 @@ import model_io
 import models
 import utils
 from dataloader import DepthDataLoader
-from loss import SILogLoss, BinsChamferLoss
+from loss import SILogLoss, BinsChamferLoss, GradLoss
 from utils import RunningAverage
 
 PROJECT = "Thesis_MixEnsemble"
@@ -32,6 +32,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     ###################################### Load model ##############################################
     baselearners = []
+    baselearners_name = []
     if args.module == "adabins":
         model = models.UnetAdaptiveBins.build(basemodel_name=args.encoder, n_bins=args.n_bins, min_val=args.min_depth, max_val=args.max_depth, norm=args.norm)
     elif args.module == "bts":
@@ -39,20 +40,27 @@ def main_worker(gpu, ngpus_per_node, args):
     elif args.module == "ldrn":
         model = models.LDRN.build(basemodel_name=args.encoder, max_depth=args.max_depth)
     elif args.module == "controller":
-        baselearners_name = ["adabins", "bts", "ldrn"]
-        baselearners_path = [
-            "./checkpoints/UnetAdaptiveBins_04-Aug_21-32-nodebs32-tep25-lr0.000613590727341-wd0.0001-maxMT0.95-seed20210804-adabins-c424a732-f55f-47ef-9d1d-02e2eaa7af05_best.pt",
-            "./checkpoints/UnetAdaptiveBins_05-Aug_06-49-nodebs32-tep25-lr0.000863310742922-wd0.0001-maxMT0.95-seed0-bts-b976954d-f4ef-48f7-8468-848a59d08692_best.pt",
-            "./checkpoints/UnetAdaptiveBins_05-Aug_17-50-nodebs32-tep25-lr0.001232846739442-wd0.0001-maxMT0.95-seed1234567890-ldrn-1d367e30-91c5-4b3a-b06c-733221a79e7e_best.pt"
-        ]
-        baselearners.append(models.UnetAdaptiveBins.build(basemodel_name=args.encoder, n_bins=args.n_bins, min_val=args.min_depth, max_val=args.max_depth, norm=args.norm))
-        baselearners.append(models.BtsModel.build(basemodel_name=args.encoder, bts_size=args.bts_size, min_val=args.min_depth, max_val=args.max_depth, norm=args.norm))
-        baselearners.append(models.LDRN.build(basemodel_name=args.encoder, max_depth=args.max_depth))
-        for i in range(len(baselearners)):
-            baselearners[i] = model_io.load_pretrained(baselearners_path[i], baselearners[i], name=baselearners_name[i], num_gpu=args.gpu)[0]
+        self.baselearners_name = args.baselearner_name
+        self.baselearners_path = args.baselearner_path
+        print("#"*40)
+        print(self.baselearners_name)
+        for x in self.baselearners_path:
+            print(x)
+        print("#"*40)
         
-        model=models.Controller.build(basemodel_name=args.encoder_controller, ensemble_size=3, controller_input=args.controller_input)
-    
+        for module in baselearners_name:
+            if module == "adabins":
+                baselearners.append(models.UnetAdaptiveBins.build(basemodel_name=args.encoder, n_bins=args.n_bins, min_val=args.min_depth, max_val=args.max_depth, norm=args.norm))
+            elif module == "bts":
+                baselearners.append(models.BtsModel.build(basemodel_name=args.encoder, bts_size=args.bts_size, min_val=args.min_depth, max_val=args.max_depth, norm=args.norm))
+            elif module == "ldrn":
+                baselearners.append(models.LDRN.build(basemodel_name=args.encoder, max_depth=args.max_depth))
+        
+        for model, path, module in zip(baselearners, baselearners_path, baselearners_name):
+            model = model_io.load_pretrained(path, model, name=module, num_gpu=args.gpu)[0]
+        
+        model=models.Controller.build(basemodel_name=args.encoder_controller, ensemble_size=len(baselearners_name), controller_input=args.controller_input, relax_linear_hypothesis=args.relax_linear_hypothesis)
+        
     ###################################### Distributed Training ##############################################
     if args.gpu is not None:  # If a gpu is set by user: NO PARALLELISM!!
         torch.cuda.set_device(args.gpu)
@@ -95,10 +103,12 @@ def main_worker(gpu, ngpus_per_node, args):
     args.epoch = 0
     args.last_epoch = -1
     experiment_name = args.module + args.controller_input if args.module == "controller" else args.module
-    train(model, baselearners, args, epochs=args.epochs, lr=args.lr, device=args.gpu, root=args.root, experiment_name=experiment_name, optimizer_state_dict=None)
+    train(model, baselearners, baselearners_name, args, epochs=args.epochs, lr=args.lr, device=args.gpu, root=args.root, experiment_name=experiment_name, optimizer_state_dict=None)
 
 
-def train(model, baselearners, args, epochs=10, experiment_name="controller", lr=0.0001, root=".", device=None, optimizer_state_dict=None):
+
+
+def train(model, baselearners, baselearners_name, args, epochs=10, experiment_name="controller", lr=0.0001, root=".", device=None, optimizer_state_dict=None):
     print("Training {}, use {} base learners".format(args.module, len(baselearners)))
     
     global PROJECT
@@ -133,6 +143,7 @@ def train(model, baselearners, args, epochs=10, experiment_name="controller", lr
 
     ###################################### Loss Functions ##############################################
     criterion_si = SILogLoss(name = args.module + "-SI-Loss")
+    criterion_grad = GradLoss(name = args.module + "-Grad-Loss")
     if args.module == "adabins":
         criterion_bins = BinsChamferLoss() if args.chamfer else None
     
@@ -217,27 +228,52 @@ def train(model, baselearners, args, epochs=10, experiment_name="controller", lr
             elif args.module == "ldrn":
                 _, pred = model(img)
             elif args.module == "controller":
-                predList = [baselearners[0](img)[-1], baselearners[1](img, focal), baselearners[2](img)[-1]]
-                int_pred = torch.cat([nn.functional.interpolate(predList[0], depth.shape[-2:], mode="bilinear", align_corners=True), predList[1], predList[2]], dim = 1)
+                predList = []
+                for i in range(len(baselearners)):
+                    if baselearners_name[i] == "adabins":
+                        bin_edges, pred = baselearners[i](img)
+                        predList.append(nn.functional.interpolate(pred, depth.shape[-2:], mode="bilinear", align_corners=True))
+                    elif baselearners_name[i] == "bts": predList.append(baselearners[i](img, focal))
+                    elif baselearners_name[i] == "ldrn": predList.append(baselearners[i](img)[-1])
+                
+                int_pred = torch.cat(predList, dim = 1)
                 if args.controller_input == "i": weight = model(img)
                 elif args.controller_input == "o": weight = model(int_pred)
                 elif args.controller_input == "io": weight = model(torch.cat([img, int_pred], dim=1))
-                pred = torch.mul(int_pred, weight).sum(dim = 1).reshape(depth.size())
+                if args.relax_linear_hypothesis: pred = weight
+                else: pred = torch.mul(int_pred, weight).sum(dim = 1).reshape(depth.size())
+                
+                # predList = [baselearners[0](img)[-1], baselearners[1](img, focal), baselearners[2](img)[-1]]
+                # int_pred = torch.cat([ predList[1], predList[2]], dim = 1)
+                # if args.controller_input == "i": weight = model(img)
+                # elif args.controller_input == "o": weight = model(int_pred)
+                # elif args.controller_input == "io": weight = model(torch.cat([img, int_pred], dim=1))
+                # pred = torch.mul(int_pred, weight).sum(dim = 1).reshape(depth.size())
             
             mask = depth > args.min_depth
             
             require_interpolate = True if args.module == "adabins" else False
             loss_si = criterion_si(pred, depth, mask=mask.to(torch.bool), interpolate=require_interpolate)
+            # print(loss_si)
+            # print(pred)
             if args.module == "adabins":
                 loss_bins = criterion_bins(bin_edges, depth) if args.w_chamfer > 0 else torch.Tensor([0]).to(img.device)
             
-            loss = loss_si + args.w_chamfer * loss_bins if args.module == "adabins" else loss_si
+            if args.module == "controller" and args.gradient_loss:
+                loss_grad = criterion_grad(pred, depth, mask)
+            
+            # for choosing loss function
+            if args.module == "adabins": loss = loss_si + args.w_chamfer * loss_bins
+            elif args.module == "controller" and args.gradient_loss: loss = loss_si + 0.25*loss_grad
+            else: loss = loss_si
+            
             loss.backward()
             nn.utils.clip_grad_norm_(model.parameters(), 0.1)  # optional
             optimizer.step()
             
             if should_log and step % 5 == 0:
                 wandb.log({f"Train/{criterion_si.name}": loss_si.item()}, step=step)
+                if args.module == "controller" and args.gradient_loss: wandb.log({f"Train/{criterion_grad.name}": loss_grad.item()}, step=step)
                 #wandb.log({f"Train/{silog_criterion.name}": l_silog.item()}, step=step)
 
             step += 1
@@ -248,7 +284,7 @@ def train(model, baselearners, args, epochs=10, experiment_name="controller", lr
 
                 ################################# Validation loop ##################################################
                 model.eval()
-                metrics, val_total_si= validate(args, model, baselearners, test_loader, criterion_si, epoch, epochs, device)
+                metrics, val_total_si, val_total_grad = validate(args, model, baselearners, baselearners_name, test_loader, criterion_si, criterion_grad, epoch, epochs, device)
                 if should_log:
                     wandb.log(
                         {
@@ -257,6 +293,7 @@ def train(model, baselearners, args, epochs=10, experiment_name="controller", lr
                         },
                         step=step,
                     )
+                    if args.module == "controller" and args.gradient_loss: wandb.log({f"Test/{criterion_grad.name}": val_total_grad.get_value(),}, step=step)
 
                     wandb.log(
                         {f"Metrics/{k}": v for k, v in metrics.items()}, step=step
@@ -270,7 +307,7 @@ def train(model, baselearners, args, epochs=10, experiment_name="controller", lr
                     )
 
                 if metrics["abs_rel"] < best_loss and should_write:
-                    model_io.save_checkpoint(
+                    model_io.save_checkpoint(            
                         model,
                         optimizer,
                         epoch,
@@ -284,9 +321,10 @@ def train(model, baselearners, args, epochs=10, experiment_name="controller", lr
     return model
 
      
-def validate(args, model, baselearners, test_loader, criterion_si, epoch, epochs, device="cpu"):
+def validate(args, model, baselearners, baselearners_name, test_loader, criterion_si, criterion_grad, epoch, epochs, device="cpu"):
     with torch.no_grad():
         val_total_si = RunningAverage()
+        val_total_grad = RunningAverage()
         metrics = utils.RunningAverageDict()
         for batch in (
             tqdm(test_loader, desc=f"Epoch: {epoch + 1}/{epochs}. Loop: Validation")
@@ -309,16 +347,35 @@ def validate(args, model, baselearners, test_loader, criterion_si, epoch, epochs
             elif args.module == "ldrn":
                 _, pred = model(img)
             elif args.module == "controller":
-                predList = [baselearners[0](img)[-1], baselearners[1](img, focal), baselearners[2](img)[-1]]
-                int_pred = torch.cat([nn.functional.interpolate(predList[0], depth.shape[-2:], mode="bilinear", align_corners=True), predList[1], predList[2]], dim = 1)
+                # predList = [baselearners[0](img)[-1], baselearners[1](img, focal), baselearners[2](img)[-1]]
+                # int_pred = torch.cat([nn.functional.interpolate(predList[0], depth.shape[-2:], mode="bilinear", align_corners=True), predList[1], predList[2]], dim = 1)
+                # if args.controller_input == "i": weight = model(img)
+                # elif args.controller_input == "o": weight = model(int_pred)
+                # elif args.controller_input == "io": weight = model(torch.cat([img, int_pred], dim=1))
+                # pred = torch.mul(int_pred, weight).sum(dim = 1).reshape(depth.size())
+                
+                predList = []
+                for i in range(len(baselearners)):
+                    if baselearners_name[i] == "adabins":
+                        bin_edges, pred = baselearners[i](img)
+                        predList.append(nn.functional.interpolate(pred, depth.shape[-2:], mode="bilinear", align_corners=True))
+                    elif baselearners_name[i] == "bts": predList.append(baselearners[i](img, focal))
+                    elif baselearners_name[i] == "ldrn": predList.append(baselearners[i](img)[-1])
+                
+                int_pred = torch.cat(predList, dim = 1)
                 if args.controller_input == "i": weight = model(img)
                 elif args.controller_input == "o": weight = model(int_pred)
                 elif args.controller_input == "io": weight = model(torch.cat([img, int_pred], dim=1))
-                pred = torch.mul(int_pred, weight).sum(dim = 1).reshape(depth.size())
+                if args.relax_linear_hypothesis: pred = weight
+                else: pred = torch.mul(int_pred, weight).sum(dim = 1).reshape(depth.size())
             
             mask = depth > args.min_depth
                 
             loss_si = criterion_si(pred, depth, mask=mask.to(torch.bool), interpolate=False)
+            if args.module == "controller" and args.gradient_loss:
+                loss_grad = criterion_grad(pred, depth, mask)
+                val_total_grad.append(loss_grad.item())
+            
             val_total_si.append(loss_si.item())
             
             pred = pred.squeeze().cpu().numpy()
@@ -350,7 +407,7 @@ def validate(args, model, baselearners, test_loader, criterion_si, epoch, epochs
             valid_mask = np.logical_and(valid_mask, eval_mask)
             metrics.update(utils.compute_errors(gt_depth[valid_mask], pred[valid_mask]))
 
-        return metrics.get_value(), val_total_si
+        return metrics.get_value(), val_total_si, val_total_grad
 
 if __name__ == "__main__":
     args.batch_size = args.bs

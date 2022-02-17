@@ -12,7 +12,47 @@ import utils
 from dataloader import DepthDataLoader
 from utils import RunningAverageDict
 
-def validate(model, baselearners, test_loader, args, gpus="cpu"):
+def clipping(pred, args, require_flip=False):
+    if require_flip: pred = np.array(pred.cpu().numpy())[..., ::-1].copy()
+    else: pred = pred.squeeze().cpu().numpy()
+    pred[pred < args.min_depth_eval] = args.min_depth_eval
+    pred[pred > args.max_depth_eval] = args.max_depth_eval
+    pred[np.isinf(pred)] = args.max_depth_eval
+    pred[np.isnan(pred)] = args.min_depth_eval
+    return pred
+
+def predict(model, baselearners, baselearners_name, args, img, focal=torch.tensor([518.8579]), require_flip=False, require_clip=True):
+    if args.module == "adabins":
+        bin_edges, pred = model(img)
+        pred = nn.functional.interpolate(pred, img.shape[-2:], mode="bilinear", align_corners=True)
+    elif args.module == "bts":
+        pred = model(img, focal)
+    elif args.module == "ldrn":
+        _, pred = model(img)
+    elif args.module == "controller":                
+        predList = []
+        for i in range(len(baselearners)):
+            # print(baselearners_name[i])
+            if baselearners_name[i] == "adabins":
+                bin_edges, pred = baselearners[i](img)
+                predList.append(nn.functional.interpolate(pred, img.shape[-2:], mode="bilinear", align_corners=True))
+            elif baselearners_name[i] == "bts": predList.append(baselearners[i](img, focal))
+            elif baselearners_name[i] == "ldrn": predList.append(baselearners[i](img)[-1])
+        
+        int_pred = torch.cat(predList, dim = 1)
+        # print(len(predList), int_pred.shape)
+        if not args.baseline:
+            if args.controller_input == "i": weight = model(img)
+            elif args.controller_input == "o": weight = model(int_pred)
+            elif args.controller_input == "io": weight = model(torch.cat([img, int_pred], dim=1))
+            pred = torch.mul(int_pred, weight).sum(dim = 1).reshape((img.shape[0], 1, img.shape[2], img.shape[3]))
+        else:
+            pred = torch.mul(int_pred, 1./len(baselearners)).sum(dim = 1).reshape((img.shape[0], 1, img.shape[2], img.shape[3]))
+    
+    if require_clip: pred = clipping(pred,args,require_flip=require_flip)
+    return pred
+
+def validate(model, baselearners, baselearners_name, test_loader, args, gpus="cpu"):
     if gpus is None:
         device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     else:
@@ -32,72 +72,13 @@ def validate(model, baselearners, test_loader, args, gpus="cpu"):
                     continue
             depth = depth.squeeze().unsqueeze(0).unsqueeze(0)
             
-            # original image
-            if args.module == "adabins":
-                bin_edges, pred = model(img)
-                pred = nn.functional.interpolate(pred, depth.shape[-2:], mode="bilinear", align_corners=True)
-            elif args.module == "bts":
-                pred = model(img, focal)
-            elif args.module == "ldrn":
-                _, pred = model(img)
-            elif args.module == "controller":
-                predList = [baselearners[0](img)[-1], baselearners[1](img, focal), baselearners[2](img)[-1]]
-                int_pred = torch.cat([nn.functional.interpolate(predList[0], depth.shape[-2:], mode="bilinear", align_corners=True), predList[1], predList[2]], dim = 1)
-                if not args.baseline:
-                    if args.controller_input == "i": weight = model(img)
-                    elif args.controller_input == "o": weight = model(int_pred)
-                    elif args.controller_input == "io": weight = model(torch.cat([img, int_pred], dim=1))
-                    pred = torch.mul(int_pred, weight).sum(dim = 1).reshape(depth.size())
-                else:
-                    pred = torch.mul(int_pred, 1/3.).sum(dim = 1).reshape(depth.size())
-                
-            pred = pred.squeeze().cpu().numpy()
-            pred[pred < args.min_depth_eval] = args.min_depth_eval
-            pred[pred > args.max_depth_eval] = args.max_depth_eval
-            pred[np.isinf(pred)] = args.max_depth_eval
-            pred[np.isnan(pred)] = args.min_depth_eval
-            temp = pred
-            
-            #flipped image
-            """
-            These lines of code function properly, however they are commented out to be consistent with the progress described in the report.
-            In the complete thesis, models' prediction will based on both original image and its flipped version.
-            """
-            # img = torch.Tensor(np.array(img.cpu().numpy())[..., ::-1].copy()).to(device)
-            
-            # if args.module == "adabins":
-            #     bin_edges, pred = model(img)
-            #     pred = nn.functional.interpolate(pred, depth.shape[-2:], mode="bilinear", align_corners=True)
-            # elif args.module == "bts":
-            #     pred = model(img, focal)
-            # elif args.module == "ldrn":
-            #     _, pred = model(img)
-            # elif args.module == "controller":
-            #     predList = [baselearners[0](img)[-1], baselearners[1](img, focal), baselearners[2](img)[-1]]
-            #     int_pred = torch.cat([nn.functional.interpolate(predList[0], depth.shape[-2:], mode="bilinear", align_corners=True), predList[1], predList[2]], dim = 1)
-            #     if not args.baseline:
-            #         if args.controller_input == "i": weight = model(img)
-            #         elif args.controller_input == "o": weight = model(int_pred)
-            #         elif args.controller_input == "io": weight = model(torch.cat([img, int_pred], dim=1))
-            #         pred = torch.mul(int_pred, weight).sum(dim = 1).reshape(depth.size())
-            #     else:
-            #         pred = torch.mul(int_pred, 1/3.).sum(dim = 1).reshape(depth.size())
-            
-            # pred = np.array(pred.cpu().numpy())[..., ::-1].copy()
-            # pred[pred < args.min_depth_eval] = args.min_depth_eval
-            # pred[pred > args.max_depth_eval] = args.max_depth_eval
-            # pred[np.isinf(pred)] = args.max_depth_eval
-            # pred[np.isnan(pred)] = args.min_depth_eval
+            temp = pred = predict(model, baselearners, baselearners_name, args, img)
+            img = torch.Tensor(np.array(img.cpu().numpy())[..., ::-1].copy()).to(device)
+            pred = predict(model, baselearners, baselearners_name, args, img, require_flip=True)
             
             #evaluate
             pred = 0.5*(pred+temp)
-            
-            final = torch.Tensor(pred)
-            final = final.squeeze().cpu().numpy()
-            final[final < args.min_depth_eval] = args.min_depth_eval
-            final[final > args.max_depth_eval] = args.max_depth_eval
-            final[np.isinf(final)] = args.max_depth_eval
-            final[np.isnan(final)] = args.min_depth_eval
+            final = clipping(torch.Tensor(pred),args)
 
             gt_depth = depth.squeeze().cpu().numpy()
             valid_mask = np.logical_and(gt_depth > args.min_depth_eval, gt_depth < args.max_depth_eval)
@@ -132,7 +113,9 @@ if __name__ == '__main__':
     device = torch.device('cuda:{}'.format(args.gpu))
     test = DepthDataLoader(args, 'online_eval').data
     
+    
     baselearners = []
+    baselearners_name = []
     if args.module == "adabins":
         model = models.UnetAdaptiveBins.build(basemodel_name=args.encoder, n_bins=args.n_bins, min_val=args.min_depth, max_val=args.max_depth, norm=args.norm)
     elif args.module == "bts":
@@ -140,23 +123,34 @@ if __name__ == '__main__':
     elif args.module == "ldrn":
         model = models.LDRN.build(basemodel_name=args.encoder, max_depth=args.max_depth)
     elif args.module == "controller":
-        baselearners_name = ["adabins", "bts", "ldrn"]
-        baselearners_path = [
-            "./checkpoints/UnetAdaptiveBins_04-Aug_21-32-nodebs32-tep25-lr0.000613590727341-wd0.0001-maxMT0.95-seed20210804-adabins-c424a732-f55f-47ef-9d1d-02e2eaa7af05_best.pt",
-            "./checkpoints/UnetAdaptiveBins_05-Aug_06-49-nodebs32-tep25-lr0.000863310742922-wd0.0001-maxMT0.95-seed0-bts-b976954d-f4ef-48f7-8468-848a59d08692_best.pt",
-            "./checkpoints/UnetAdaptiveBins_05-Aug_17-50-nodebs32-tep25-lr0.001232846739442-wd0.0001-maxMT0.95-seed1234567890-ldrn-1d367e30-91c5-4b3a-b06c-733221a79e7e_best.pt"
-        ]
-        baselearners.append(models.UnetAdaptiveBins.build(basemodel_name=args.encoder, n_bins=args.n_bins, min_val=args.min_depth, max_val=args.max_depth, norm=args.norm))
-        baselearners.append(models.BtsModel.build(basemodel_name=args.encoder, bts_size=args.bts_size, min_val=args.min_depth, max_val=args.max_depth, norm=args.norm))
-        baselearners.append(models.LDRN.build(basemodel_name=args.encoder, max_depth=args.max_depth))
-        for i in range(len(baselearners)):
-            baselearners[i] = model_io.load_pretrained(baselearners_path[i], baselearners[i], name=baselearners_name[i], num_gpu=args.gpu)[0]
-            baselearners[i] = baselearners[i].cuda(args.gpu).eval()
+        self.baselearners_name = args.baselearner_name
+        self.baselearners_path = args.baselearner_path
+        print("#"*40)
+        print(self.baselearners_name)
+        for x in self.baselearners_path:
+            print(x)
+        print("#"*40)
+
+        for module in baselearners_name:
+            if module == "adabins":
+                baselearners.append(models.UnetAdaptiveBins.build(basemodel_name=args.encoder, n_bins=args.n_bins, min_val=args.min_depth, max_val=args.max_depth, norm=args.norm))
+            elif module == "bts":
+                baselearners.append(models.BtsModel.build(basemodel_name=args.encoder, bts_size=args.bts_size, min_val=args.min_depth, max_val=args.max_depth, norm=args.norm))
+            elif module == "ldrn":
+                baselearners.append(models.LDRN.build(basemodel_name=args.encoder, max_depth=args.max_depth))
         
-        model=models.Controller.build(basemodel_name=args.encoder_controller, ensemble_size=3, controller_input=args.controller_input)
+        for model, path, module in zip(baselearners, baselearners_path, baselearners_name):
+            model = model_io.load_pretrained(path, model, name=module, num_gpu=args.gpu)[0]
+            model = model.cuda(args.gpu).eval()
+        
+        if not args.baseline:
+            model=models.Controller.build(basemodel_name=args.encoder_controller, ensemble_size=len(baselearners_name), controller_input=args.controller_input, relax_linear_hypothesis=args.relax_linear_hypothesis)
+        else:
+            model = None
     
-    model = model_io.load_pretrained(args.checkpoint_path, model, name=args.module, num_gpu=args.gpu)[0]
-    model = model.cuda(args.gpu).eval()
+    if not args.baseline:
+        model = model_io.load_pretrained(args.checkpoint_path, model, name=args.module, num_gpu=args.gpu)[0]
+        model = model.cuda(args.gpu).eval()
     
     print("Evaluate {}".format(args.module))
-    validate(model, baselearners, test, args, gpus=[device])
+    validate(model, baselearners, baselearners_name, test, args, gpus=[device])

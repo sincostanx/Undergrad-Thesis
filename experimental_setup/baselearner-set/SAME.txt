@@ -1,0 +1,6 @@
+bts bts bts bts bts
+./checkpoints/MixedEnsemble_11-Aug_11-31-nodebs32-tep25-lr0.000863310742922-wd0.0001-maxMT0.95-seed457708596996-bts-1324e5f7-d867-4223-af71-fee0fe12e971_best.pt
+./checkpoints/MixedEnsemble_11-Aug_19-32-nodebs32-tep25-lr0.000863310742922-wd0.0001-maxMT0.95-seed684196397493-bts-1d408ba1-61c4-4955-9041-d74c6f7763d3_best.pt
+./checkpoints/MixedEnsemble_12-Aug_03-33-nodebs32-tep25-lr0.000863310742922-wd0.0001-maxMT0.95-seed243421082454-bts-cf67c6c1-f01f-49df-8b99-5e4d3657c6a0_best.pt
+./checkpoints/MixedEnsemble_12-Aug_11-33-nodebs32-tep25-lr0.000863310742922-wd0.0001-maxMT0.95-seed625818595314-bts-6e935a1c-6ce4-4b0b-8539-4778cc3c4731_best.pt
+./checkpoints/MixedEnsemble_12-Aug_19-34-nodebs32-tep25-lr0.000863310742922-wd0.0001-maxMT0.95-seed286405926972-bts-6d2b87e5-223c-4d5f-abfb-fc2931225ad4_best.pt

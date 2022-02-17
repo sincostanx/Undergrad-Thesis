@@ -1,3 +1,4 @@
+# This code has not been refactored yet. So, it may not run properly...
 import os
 
 import numpy as np

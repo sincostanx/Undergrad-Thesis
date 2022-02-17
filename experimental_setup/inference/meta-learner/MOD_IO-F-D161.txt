@@ -1,0 +1,25 @@
+--dataset nyu
+--n_bins 256
+--norm linear
+--root .
+--data_path /work/cow/worameth/sync/
+--gt_path /work/cow/worameth/sync/
+--filenames_file ./train_test_inputs/nyudepthv2_train_files_with_gt.txt
+--input_height 416
+--input_width 544
+--data_path_eval /home/yy/worameth/Desktop/nyu_depth_v2/official_splits/test/
+--gt_path_eval /home/yy/worameth/Desktop/nyu_depth_v2/official_splits/test/
+--filenames_file_eval ./train_test_inputs/nyudepthv2_test_files_with_gt.txt
+--min_depth_eval 1e-3
+--max_depth_eval 10
+--eigen_crop
+
+--module controller
+--controller-input io
+--encoder-controller densenet_161
+--checkpoint-path ./checkpoints/controllerio_21-Dec_14-47-nodebs16-tep25-lr1e-05-wd0.0001-maxMT0.95-seed0-6088874e-f2b2-4af9-801e-917052e55cd9_best.pt
+--baselearner ./experimental_setup/baselearner-set/MOD.txt
+
+--predict_dir ./test_imgs/
+--save_dir prediction/meta-learner/MOD_IO-F-D161
+--plot_weight

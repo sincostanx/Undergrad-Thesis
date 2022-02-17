@@ -17,7 +17,6 @@ parser.convert_arg_line_to_args = convert_arg_line_to_args
 # Data and Directory setting
 parser.add_argument("--root", default=".", type=str, help="Root folder to save data in")
 parser.add_argument("--resume", default="", type=str, help="Resume from checkpoint")
-
 parser.add_argument("--workers", default=11, type=int, help="Number of workers for data loading")
 
 parser.add_argument("--dataset", default="nyu", type=str, help="Dataset to train on")
@@ -27,6 +26,10 @@ parser.add_argument("--filenames_file", default="./train_test_inputs/nyudepthv2_
 parser.add_argument("--data_path_eval", default="../dataset/nyu/official_splits/test/", type=str, help="path to the data for online evaluation")
 parser.add_argument("--gt_path_eval", default="../dataset/nyu/official_splits/test/", type=str, help="path to the groundtruth data for online evaluation")
 parser.add_argument("--filenames_file_eval", default="./train_test_inputs/nyudepthv2_test_files_with_gt.txt", type=str, help="path to the filenames text file for online evaluation",)
+parser.add_argument("--baselearner", default="", type=str, help="path to the file containing a list of base learners")
+parser.add_argument("--baselearner_name", nargs="+", default=[], help="name of base learners") # auto extracted from --baselearner
+parser.add_argument("--baselearner_path", nargs="+", default=[], help="path to base learners") # auto extracted from --baselearner
+parser.add_argument("--ref_dir", default="/home/yy/worameth/Desktop/nyu_depth_v2/official_splits/test/", type=str, help="path to folder to approximate average performance (fps)")
 
 parser.add_argument("--input_height", type=int, help="input height", default=416)
 parser.add_argument("--input_width", type=int, help="input width", default=544)
@@ -46,22 +49,24 @@ parser.add_argument("--use_right", help="if set, will randomly use right images 
 parser.add_argument('--seed', default=0, type=int, help='seed for random functions, and network initialization')
 parser.add_argument("--epochs", default=25, type=int, help="number of total epochs to run")
 parser.add_argument("--bs", default=16, type=int, help="batch size")
-parser.add_argument("--max_momentum", type=float, help="maximum depth for evaluation", default=0.95)
+parser.add_argument("--max_momentum", type=float, help="maximum momentum", default=0.95)
 parser.add_argument("--wd", "--weight-decay", default=0.1, type=float, help="weight decay")
-parser.add_argument("--controller-input", "--controller_input", default="io", type=str, help="Input for controller module: i, o, io")
+parser.add_argument("--controller-input", "--controller_input", default="io", type=str, help="Input for meta-learner module: i, o, io")
+parser.add_argument("--gradient_loss", help="if set, will also use gradient loss", action="store_true") # not used in the final work
 #parser.add_argument('--variance_focus', type=float, help='lambda in paper: [0, 1], higher value more focus on minimizing variance of error', default=0.85)
-
-#Evaluation and Inference setting
-parser.add_argument('--save-dir', '--save_dir', default=None, type=str, help='Store predictions in folder')
-parser.add_argument('--checkpoint-path', '--checkpoint_path', type=str, required=False, help="checkpoint file to use for prediction")
-parser.add_argument("--baseline", help="if set, ignores controller and use unweighted average to combine predictions instead", action="store_true")
-
+parser.add_argument("--relax_linear_hypothesis", help="if set, will relax linear hypothesis", action="store_true") # not used in the final work
 parser.add_argument("--lr", "--learning-rate", default=0.000357, type=float, help="max learning rate")
 parser.add_argument("--same-lr", "--same_lr", default=False, action="store_true", help="Use same LR for all param groups")
 parser.add_argument("--div-factor", "--div_factor", default=25, type=float, help="Initial div factor for lr")
 parser.add_argument("--final-div-factor", "--final_div_factor", default=100, type=float, help="final div factor for lr")
-
 parser.add_argument("--validate-every", "--validate_every", default=100, type=int, help="validation period")
+
+#Evaluation and Inference setting
+parser.add_argument('--save-dir', '--save_dir', default=None, type=str, help='Store predictions in folder')
+parser.add_argument('--predict-dir', '--predict_dir', default=None, type=str, help='Read predictions in folder')
+parser.add_argument('--plot-weight', '--plot_weight', help="if set, will visualize weight for each base learners", action="store_true")
+parser.add_argument('--checkpoint-path', '--checkpoint_path', type=str, required=False, help="checkpoint file to use for prediction")
+parser.add_argument("--baseline", help="if set, ignores meta-learner and use unweighted averaging strategy to combine predictions instead", action="store_true")
 
 # Model setting
 parser.add_argument("--module", default="controller", type=str, help="Module to operate on")
@@ -83,11 +88,14 @@ parser.add_argument("--tags", default="sweep", type=str, help="Wandb tags")
 # For finding optimal lr
 parser.add_argument("--lrtest", default=50, type=int, help="number of step for lr test")
 
-# For inspect network architectures (summary.py)
-parser.add_argument("--inspect-module", "--inspect_module", default="ensemble", type=str, help="Module to inspect on: adabins, bts, ldrn, controller, ensemble")
-
 if sys.argv.__len__() == 2:
     arg_filename_with_prefix = "@" + sys.argv[1]
     args = parser.parse_args([arg_filename_with_prefix])
 else: args = parser.parse_args()
+
+if args.baselearner != "":
+    with open(args.baselearner, "r") as f:
+        lines = f.readlines()
+        args.baselearner_name = lines[0].split()
+        args.baselearner_path = [line.strip() for line in lines[1:]]
 

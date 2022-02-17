@@ -1,0 +1,6 @@
+bts bts bts bts bts
+./checkpoints/bts_16-Nov_07-43-nodebs32-tep25-lr0.000863310742922-wd0.0001-maxMT0.95-seed0-8693e819-39df-4703-b67f-b05e82c6b8ed_best.pt
+./checkpoints/bts_17-Nov_08-37-nodebs32-tep25-lr0.000863310742922-wd0.0001-maxMT0.95-seed0-b145fda3-777e-461a-97a1-d0aed757f50d_best.pt
+./checkpoints/bts_17-Nov_23-57-nodebs32-tep25-lr0.000863310742922-wd0.0001-maxMT0.95-seed0-00c56101-ec89-40c3-aef8-1f01d4f37197_best.pt
+./checkpoints/bts_18-Nov_13-20-nodebs32-tep25-lr0.000863310742922-wd0.0001-maxMT0.95-seed0-b68f77c9-8b90-46bf-a6fd-91eed2128f4b_best.pt
+./checkpoints/bts_19-Nov_11-22-nodebs32-tep25-lr0.000863310742922-wd0.0001-maxMT0.95-seed0-4bdc29a2-3e91-4165-aec3-1824880ab2be_best.pt

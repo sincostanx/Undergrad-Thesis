@@ -1,0 +1,6 @@
+adabins adabins adabins adabins adabins
+./checkpoints/adabins_11-Nov_19-14-nodebs32-tep25-lr0.000613590727341-wd0.0001-maxMT0.95-seed0-4c392cf9-e847-48ff-8307-30e67e254d4d_best.pt
+./checkpoints/adabins_12-Nov_07-27-nodebs32-tep25-lr0.000613590727341-wd0.0001-maxMT0.95-seed0-42586050-32e7-4587-a5f4-be35f7cc31f0_best.pt
+./checkpoints/adabins_12-Nov_15-19-nodebs32-tep25-lr0.000613590727341-wd0.0001-maxMT0.95-seed0-9d2f87b5-3467-4232-bea1-845285368b59_best.pt
+./checkpoints/adabins_15-Nov_09-17-nodebs32-tep25-lr0.000613590727341-wd0.0001-maxMT0.95-seed0-ff1db0fc-66fb-46d8-895c-551db984b8ee_best.pt
+./checkpoints/adabins_15-Nov_17-10-nodebs32-tep25-lr0.000613590727341-wd0.0001-maxMT0.95-seed0-5b9f58d7-122b-4ce2-b72c-2a20d0e04058_best.pt

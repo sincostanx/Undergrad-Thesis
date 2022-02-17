@@ -1,0 +1,31 @@
+--bs 32
+--distributed
+--dataset nyu
+--lr 0.001232846739442
+--wd 1e-4
+--div_factor 25
+--final_div_factor 100
+--epochs 25
+--workers 11
+--n_bins 256
+--norm linear
+--w_chamfer 0.1
+--root .
+--data_path /work/cow/worameth/sync/
+--gt_path /work/cow/worameth/sync/
+--filenames_file ./train_test_inputs/nyu-train-fold-3.txt
+--input_height 416
+--input_width 544
+--min_depth 0.001
+--max_depth 10
+--do_random_rotate
+--degree 2.5
+--validate_every 323
+--data_path_eval /work/cow/worameth/sync/
+--gt_path_eval /work/cow/worameth/sync/
+--filenames_file_eval ./train_test_inputs/nyu-test-fold-3.txt
+--min_depth_eval 1e-3
+--max_depth_eval 10
+--eigen_crop
+--module ldrn
+--seed 0

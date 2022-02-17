@@ -17,8 +17,10 @@ class UpSampleBN(nn.Module):
         return torch.cat([up_x, concat_with], dim=1)
 
 class DecoderBN(nn.Module):
-    def __init__(self, feat_out_channels, ensemble_size=3, num_features=960):
+    def __init__(self, feat_out_channels, ensemble_size=3, num_features=960, relax_linear_hypothesis=False):
         super(DecoderBN, self).__init__()
+        self.relax_linear_hypothesis = relax_linear_hypothesis
+        
         features = int(num_features)
 
         self.conv2 = nn.Conv2d(feat_out_channels[-1], features, kernel_size=1, stride=1, padding=1)
@@ -31,7 +33,12 @@ class DecoderBN(nn.Module):
         
         self.conv3 = SeperableConv2d(features // 32, ensemble_size, kernel_size = 3, activation = ["relu", "none"])
         
-        self.softmax = nn.Softmax2d()
+        if relax_linear_hypothesis:
+            print("Relax linear hypothesis!")
+            self.act_out1 = nn.ReLU(inplace=True)
+            self.conv_out = nn.Conv2d(ensemble_size, 1, kernel_size=1, stride=1)
+            self.act_out2 = nn.ReLU(inplace=True)
+        else: self.softmax = nn.Softmax2d()
 
     def forward(self, features):
         x_d0 = self.conv2(features[4])
@@ -44,13 +51,19 @@ class DecoderBN(nn.Module):
         
         # numerical stable softmax for weight mask
         out = self.conv3(x_d5)
-        maxx = torch.max(out, dim = 1)[0].resize(out.size()[0],1,out.size()[2],out.size()[3])
-        out = self.softmax(torch.subtract(out,maxx))
+        if self.relax_linear_hypothesis:
+            # print(out)
+            out = self.act_out2(self.conv_out(self.act_out1(out)))
+            out = out + torch.full_like(out,1e-9)
+            # print(out)
+        else:
+            maxx = torch.max(out, dim = 1)[0].resize(out.size()[0],1,out.size()[2],out.size()[3])
+            out = self.softmax(torch.subtract(out,maxx))
         return out
 
 
 class Controller(nn.Module):
-    def __init__(self, basemodel_name, ensemble_size=3, controller_input="io"):
+    def __init__(self, basemodel_name, ensemble_size=3, controller_input="io", relax_linear_hypothesis=False):
         super(Controller, self).__init__()
         self.ensemble_size=ensemble_size
         if controller_input == "i":
@@ -59,9 +72,10 @@ class Controller(nn.Module):
             self.encoder = Encoder(basemodel_name, output_channel=960, input_channel=ensemble_size)
         elif controller_input == "io":
             self.encoder = Encoder(basemodel_name, output_channel=960, input_channel=3+ensemble_size)
-        self.decoder = DecoderBN(feat_out_channels=self.encoder.feat_out_channels, ensemble_size=ensemble_size)
+        self.decoder = DecoderBN(feat_out_channels=self.encoder.feat_out_channels, ensemble_size=ensemble_size, relax_linear_hypothesis=relax_linear_hypothesis)
 
     def forward(self, x, **kwargs):
+        # return self.encoder(x)
         return self.decoder(self.encoder(x), **kwargs)
 
     def get_1x_lr_params(self):  # lr/10 learning rate
@@ -73,7 +87,7 @@ class Controller(nn.Module):
             yield from m.parameters()
 
     @classmethod
-    def build(cls, basemodel_name, ensemble_size, controller_input, **kwargs):
-        m = cls(basemodel_name, ensemble_size=ensemble_size, controller_input=controller_input, **kwargs)
+    def build(cls, basemodel_name, ensemble_size, controller_input, relax_linear_hypothesis, **kwargs):
+        m = cls(basemodel_name, ensemble_size=ensemble_size, controller_input=controller_input, relax_linear_hypothesis=relax_linear_hypothesis, **kwargs)
         return m
 

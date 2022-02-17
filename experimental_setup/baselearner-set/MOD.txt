@@ -1,0 +1,4 @@
+adabins bts ldrn
+./checkpoints/UnetAdaptiveBins_04-Aug_21-32-nodebs32-tep25-lr0.000613590727341-wd0.0001-maxMT0.95-seed20210804-adabins-c424a732-f55f-47ef-9d1d-02e2eaa7af05_best.pt
+./checkpoints/UnetAdaptiveBins_05-Aug_06-49-nodebs32-tep25-lr0.000863310742922-wd0.0001-maxMT0.95-seed0-bts-b976954d-f4ef-48f7-8468-848a59d08692_best.pt
+./checkpoints/UnetAdaptiveBins_05-Aug_17-50-nodebs32-tep25-lr0.001232846739442-wd0.0001-maxMT0.95-seed1234567890-ldrn-1d367e30-91c5-4b3a-b06c-733221a79e7e_best.pt

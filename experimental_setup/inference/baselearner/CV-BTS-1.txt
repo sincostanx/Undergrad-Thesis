@@ -1,0 +1,21 @@
+--dataset nyu
+--n_bins 256
+--norm linear
+--root .
+--data_path /work/cow/worameth/sync/
+--gt_path /work/cow/worameth/sync/
+--filenames_file ./train_test_inputs/nyudepthv2_train_files_with_gt.txt
+--input_height 416
+--input_width 544
+--data_path_eval /home/yy/worameth/Desktop/nyu_depth_v2/official_splits/test/
+--gt_path_eval /home/yy/worameth/Desktop/nyu_depth_v2/official_splits/test/
+--filenames_file_eval ./train_test_inputs/nyudepthv2_test_files_with_gt.txt
+--min_depth_eval 1e-3
+--max_depth_eval 10
+--eigen_crop
+
+--module bts
+--checkpoint-path ./checkpoints/bts_16-Nov_07-43-nodebs32-tep25-lr0.000863310742922-wd0.0001-maxMT0.95-seed0-8693e819-39df-4703-b67f-b05e82c6b8ed_best.pt
+
+--predict_dir ./test_imgs/
+--save_dir prediction/baselearner/CV-BTS-1

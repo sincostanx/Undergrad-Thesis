@@ -1,0 +1,18 @@
+--dataset nyu
+--n_bins 256
+--norm linear
+--root .
+--data_path /work/cow/worameth/sync/
+--gt_path /work/cow/worameth/sync/
+--filenames_file ./train_test_inputs/nyudepthv2_train_files_with_gt.txt
+--input_height 416
+--input_width 544
+--data_path_eval /home/yy/worameth/Desktop/nyu_depth_v2/official_splits/test/
+--gt_path_eval /home/yy/worameth/Desktop/nyu_depth_v2/official_splits/test/
+--filenames_file_eval ./train_test_inputs/nyudepthv2_test_files_with_gt.txt
+--min_depth_eval 1e-3
+--max_depth_eval 10
+--eigen_crop
+
+--module bts
+--checkpoint-path ./checkpoints/MixedEnsemble_12-Aug_19-34-nodebs32-tep25-lr0.000863310742922-wd0.0001-maxMT0.95-seed286405926972-bts-6d2b87e5-223c-4d5f-abfb-fc2931225ad4_best.pt

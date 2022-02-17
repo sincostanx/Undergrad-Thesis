@@ -1,0 +1,6 @@
+ldrn ldrn ldrn ldrn ldrn
+./checkpoints/ldrn_22-Nov_08-18-nodebs32-tep25-lr0.001232846739442-wd0.0001-maxMT0.95-seed0-f9fabe18-64e3-42a8-87a0-ba44ade486e2_best.pt
+./checkpoints/ldrn_22-Nov_15-14-nodebs32-tep25-lr0.001232846739442-wd0.0001-maxMT0.95-seed0-28b3cd5d-fceb-40fd-a8b2-97d5dc52ad0c_best.pt
+./checkpoints/ldrn_23-Nov_09-27-nodebs32-tep25-lr0.001232846739442-wd0.0001-maxMT0.95-seed0-ed112383-2f2e-45d7-8c50-1a2d2956e41e_best.pt
+./checkpoints/ldrn_23-Nov_16-19-nodebs32-tep25-lr0.001232846739442-wd0.0001-maxMT0.95-seed0-c83dc80f-00b4-4796-aef8-f6e11f241f9e_best.pt
+./checkpoints/ldrn_24-Nov_11-06-nodebs32-tep25-lr0.001232846739442-wd0.0001-maxMT0.95-seed0-4c757cff-ea37-494e-9dc5-026bb9a5bbe1_best.pt
